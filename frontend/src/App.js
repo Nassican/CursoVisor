@@ -88,7 +88,6 @@ const App = () => {
   };
 
   const updateVideoProgress = async (path, newProgress) => {
-    console.log("Updating progress for", path, newProgress);
     setVideoProgress((prev) => ({
       ...prev,
       [path]: newProgress,
@@ -195,7 +194,6 @@ const App = () => {
           const filePath = `http://localhost:3001/api/file/${encodeURIComponent(
             completePath
           )}`;
-          console.log("filePath", filePath);
           const progress = videoProgress[filePath];
           const progressPercentage = progress
             ? (progress.currentTime / progress.duration) * 100
