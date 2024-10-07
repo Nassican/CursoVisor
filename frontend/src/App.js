@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Folder,
   ChevronRight,
@@ -6,24 +6,30 @@ import {
   FileVideo,
   FileText,
   File,
+  Home as HomeIcon,
 } from "lucide-react";
 import axios from "axios";
-import { videoHistoryService } from "./videoHistoryService";
+import { videoHistoryService } from "./components/videoHistoryService";
+import Home from "./components/Home";
 
 const App = () => {
   const [structure, setStructure] = useState(null);
   const [selectedContent, setSelectedContent] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState({});
-  const [folderPath] = useState("");
+  const [folderPath, setFolderPath] = useState("");
   const [videoProgress, setVideoProgress] = useState({});
   const [currentSection, setCurrentSection] = useState("");
   const [videoHistory, setVideoHistory] = useState({});
+  const [selectedCourse, setSelectedCourse] = useState(null);
 
   useEffect(() => {
-    fetchFolderStructure();
+    if (folderPath) {
+      fetchFolderStructure();
+    }
     fetchVideoProgress();
     fetchVideoHistory();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderPath]);
 
   const fetchVideoHistory = async () => {
     const history = await videoHistoryService.fetchHistory();
@@ -58,10 +64,13 @@ const App = () => {
     }));
   };
 
-  const selectContent = (type, path) => {
+  const selectContent = (type, filePath) => {
+    const completePath = `${selectedCourse}/${filePath}`; // Asegúrate de que incluya el nombre del curso
     setSelectedContent({
       type,
-      path: `http://localhost:3001/api/file/${path}`,
+      path: `http://localhost:3001/api/file/${encodeURIComponent(
+        completePath
+      )}`,
     });
   };
 
@@ -79,6 +88,7 @@ const App = () => {
   };
 
   const updateVideoProgress = async (path, newProgress) => {
+    console.log("Updating progress for", path, newProgress);
     setVideoProgress((prev) => ({
       ...prev,
       [path]: newProgress,
@@ -116,6 +126,21 @@ const App = () => {
     } else {
       return a.localeCompare(b);
     }
+  };
+
+  const handleCourseSelect = (courseId) => {
+    setSelectedCourse(courseId);
+    // Establece el folderPath con el nombre del curso
+    setFolderPath(`/${courseId}`);
+    setStructure(null);
+    setSelectedContent(null);
+  };
+
+  const goToHome = () => {
+    setSelectedCourse(null);
+    setStructure(null);
+    setSelectedContent(null);
+    setFolderPath("");
   };
 
   const renderTree = (node, path = "") => {
@@ -166,8 +191,11 @@ const App = () => {
               : value.type === "html"
               ? "text-green-500"
               : "text-gray-500";
-
-          const filePath = `http://localhost:3001/api/file/${value.path}`;
+          const completePath = `${selectedCourse}/${value.path}`;
+          const filePath = `http://localhost:3001/api/file/${encodeURIComponent(
+            completePath
+          )}`;
+          console.log("filePath", filePath);
           const progress = videoProgress[filePath];
           const progressPercentage = progress
             ? (progress.currentTime / progress.duration) * 100
@@ -183,7 +211,6 @@ const App = () => {
                 }}
               >
                 <FileIcon size={16} className={`mr-2 ${iconColor}`} />
-                <span>{key}</span>
                 {value.type === "video" && (
                   <input
                     type="checkbox"
@@ -191,10 +218,11 @@ const App = () => {
                     onChange={(e) =>
                       handleWatchedChange(filePath, e.target.checked)
                     }
-                    className="ml-2"
+                    className="ml-2 mr-2"
                     onClick={(e) => e.stopPropagation()}
                   />
                 )}
+                <span>{key}</span>
               </div>
               {value.type === "video" && (
                 <div className="ml-6 mr-2 bg-gray-200 rounded-full h-2 mb-2">
@@ -212,63 +240,83 @@ const App = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      <div className="flex flex-grow overflow-hidden">
-        <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
-          <h2 className="text-xl font-bold m-4 text-gray-800">Videos Cursos</h2>
-          {structure && renderTree(structure)}
-        </div>
-        <div className="w-3/4 p-4 overflow-y-auto">
-          {selectedContent && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2 text-gray-700">
-                {currentSection}
-              </h3>
-              <p className="text-sm text-gray-500 mb-2">
-                Ruta:{" "}
-                {decodeURIComponent(
-                  selectedContent.path.split("/api/file/")[1]
-                )}
-              </p>
+      {!selectedCourse ? (
+        <Home onCourseSelect={handleCourseSelect} />
+      ) : (
+        <div className="flex flex-grow overflow-hidden">
+          <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
+              <button
+                onClick={goToHome}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                <HomeIcon size={24} />
+              </button>
             </div>
-          )}
-          {selectedContent ? (
-            selectedContent.type === "video" ? (
-              <video
-                src={selectedContent.path}
-                controls
-                className="w-full rounded-lg shadow-lg"
-                onTimeUpdate={handleVideoTimeUpdate}
-                key={selectedContent.path}
-                onLoadedMetadata={(e) => {
-                  const video = e.target;
-                  const savedProgress = videoProgress[selectedContent.path];
-                  if (
-                    savedProgress &&
-                    savedProgress.currentTime &&
-                    isFinite(savedProgress.currentTime)
-                  ) {
-                    video.currentTime = savedProgress.currentTime;
-                  }
-                }}
-              />
-            ) : selectedContent.type === "html" ? (
-              <iframe
-                title="Contenido HTML"
-                src={selectedContent.path}
-                className="w-full h-5/6 border-none rounded-lg shadow-lg"
-              />
+            {structure ? (
+              renderTree(structure)
             ) : (
-              <p className="text-gray-600">
-                Este tipo de archivo no se puede previsualizar.
-              </p>
-            )
-          ) : (
-            <p className="text-gray-600">
-              Selecciona un archivo para ver su contenido
-            </p>
-          )}
+              <p>Cargando estructura de carpetas...</p>
+            )}
+          </div>
+          <div className="w-3/4 p-4 overflow-y-auto">
+            {selectedContent && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-gray-700">
+                  {selectedCourse}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {currentSection.replace(/\.[^/.]+$/, "")}
+                </p>
+              </div>
+            )}
+            {selectedContent ? (
+              selectedContent.type === "video" ? (
+                <video
+                  src={selectedContent.path}
+                  controls
+                  className="w-full rounded-lg shadow-lg"
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  key={selectedContent.path}
+                  onLoadedMetadata={(e) => {
+                    const video = e.target;
+                    const savedProgress = videoProgress[selectedContent.path];
+                    if (
+                      savedProgress &&
+                      savedProgress.currentTime &&
+                      isFinite(savedProgress.currentTime)
+                    ) {
+                      video.currentTime = savedProgress.currentTime;
+                    }
+                  }}
+                />
+              ) : selectedContent.type === "html" ? (
+                <iframe
+                  title="Contenido HTML"
+                  src={selectedContent.path}
+                  className="w-full h-5/6 border-none rounded-lg shadow-lg"
+                />
+              ) : (
+                <p className="text-gray-600">
+                  Este tipo de archivo no se puede previsualizar.
+                </p>
+              )
+            ) : (
+              <div className="grid items-center justify-center h-full">
+                <div className="grid items-center justify-center">
+                  <h3 className="text-lg font-semibold text-gray-600">
+                    {selectedCourse}
+                  </h3>
+                  <p className="text-gray-600">
+                    Selecciona un archivo para previsualizarlo.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

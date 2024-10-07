@@ -50,7 +50,10 @@ async function getDirectoryStructure(dir, baseDir = "") {
 app.post("/api/folder-structure", async (req, res) => {
   try {
     const { folderPath } = req.body;
-    const dir = folderPath || DEFAULT_FOLDER;
+    const dir = folderPath
+      ? path.join(DEFAULT_FOLDER, folderPath)
+      : DEFAULT_FOLDER;
+    console.log("Requesting folder structure for:", dir); // Confirma esta ruta
     const structure = await getDirectoryStructure(dir);
     res.json(structure);
   } catch (error) {
@@ -60,9 +63,20 @@ app.post("/api/folder-structure", async (req, res) => {
 });
 
 app.get("/api/file/:encodedPath(*)", (req, res) => {
+  // Decodifica la ruta del archivo correctamente
   const filePath = decodeURIComponent(req.params.encodedPath);
+  // Crea el fullPath sin duplicar 'DEFAULT_FOLDER'
   const fullPath = path.join(DEFAULT_FOLDER, filePath);
-  res.sendFile(fullPath);
+
+  // Verifica que el archivo existe antes de intentar enviarlo
+  fs.access(fullPath)
+    .then(() => {
+      res.sendFile(fullPath);
+    })
+    .catch((error) => {
+      console.error("Error: File not found", fullPath, error);
+      res.status(404).send("File not found");
+    });
 });
 
 app.get("/api/progress", async (req, res) => {
@@ -132,6 +146,24 @@ app.post("/api/video-history", async (req, res) => {
   } catch (error) {
     console.error("Error updating history:", error);
     res.status(500).json({ error: "Error updating history" });
+  }
+});
+
+app.get("/api/courses", async (req, res) => {
+  try {
+    const coursesDir = path.join(__dirname, "cursos_videos");
+    const courses = await fs.readdir(coursesDir, { withFileTypes: true });
+    const courseList = courses
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => ({
+        id: dirent.name,
+        name: dirent.name.replace(/_/g, " "),
+        description: `Descripción del curso ${dirent.name}`,
+      }));
+    res.json(courseList);
+  } catch (error) {
+    console.error("Error fetching courses:", error);
+    res.status(500).json({ error: "Error fetching courses" });
   }
 });
 
