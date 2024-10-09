@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Folder,
   ChevronRight,
@@ -12,6 +12,8 @@ import axios from "axios";
 import { videoHistoryService } from "./components/videoHistoryService";
 import Home from "./components/Home";
 
+const PROGRESS_UPDATE_INTERVAL = 10000; // 10 seconds
+
 const App = () => {
   const [structure, setStructure] = useState(null);
   const [selectedContent, setSelectedContent] = useState(null);
@@ -21,6 +23,8 @@ const App = () => {
   const [currentSection, setCurrentSection] = useState("");
   const [videoHistory, setVideoHistory] = useState({});
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const progressUpdateTimerRef = useRef(null);
+  const lastProgressUpdateRef = useRef({});
 
   useEffect(() => {
     if (folderPath) {
@@ -28,6 +32,11 @@ const App = () => {
     }
     fetchVideoProgress();
     fetchVideoHistory();
+    return () => {
+      if (progressUpdateTimerRef.current) {
+        clearInterval(progressUpdateTimerRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folderPath]);
 
@@ -64,43 +73,75 @@ const App = () => {
     }));
   };
 
-  const selectContent = (type, filePath) => {
-    const completePath = `${selectedCourse}/${filePath}`; // Asegúrate de que incluya el nombre del curso
-    setSelectedContent({
-      type,
-      path: `http://localhost:3001/api/file/${encodeURIComponent(
-        completePath
-      )}`,
-    });
-  };
-
-  const handleVideoTimeUpdate = async (e) => {
-    const video = e.target;
-    const newProgress = {
-      currentTime: video.currentTime,
-      duration: video.duration,
-    };
-    updateVideoProgress(selectedContent.path, newProgress);
-
-    if (video.currentTime === video.duration) {
-      handleWatchedChange(selectedContent.path, true);
+  const updateVideoProgressToBackend = useCallback(async (path, progress) => {
+    console.log("Attempting to update progress to backend:", path, progress);
+    try {
+      await axios.post("http://localhost:3001/api/progress", {
+        path,
+        progress,
+      });
+      console.log("Progress successfully updated to backend");
+    } catch (error) {
+      console.error("Error updating progress to backend:", error);
     }
-  };
+  }, []);
 
-  const updateVideoProgress = async (path, newProgress) => {
+  const selectContent = useCallback(
+    (type, filePath) => {
+      const completePath = `${selectedCourse}/${filePath}`;
+      setSelectedContent({
+        type,
+        path: `http://localhost:3001/api/file/${encodeURIComponent(
+          completePath
+        )}`,
+      });
+
+      // Clear existing timer when selecting new content
+      if (progressUpdateTimerRef.current) {
+        clearInterval(progressUpdateTimerRef.current);
+      }
+
+      // Start new timer for progress updates
+      if (type === "video") {
+        console.log("Setting up progress update timer for:", completePath);
+        progressUpdateTimerRef.current = setInterval(() => {
+          const lastProgress = lastProgressUpdateRef.current[completePath];
+          console.log("Timer fired. Last progress:", lastProgress);
+          if (lastProgress) {
+            updateVideoProgressToBackend(completePath, lastProgress);
+          }
+        }, PROGRESS_UPDATE_INTERVAL);
+      }
+    },
+    [selectedCourse, updateVideoProgressToBackend]
+  );
+
+  const handleVideoTimeUpdate = useCallback(
+    (e) => {
+      const video = e.target;
+      const newProgress = {
+        currentTime: video.currentTime,
+        duration: video.duration,
+      };
+      updateVideoProgressLocally(selectedContent.path, newProgress);
+
+      if (video.currentTime === video.duration) {
+        handleWatchedChange(selectedContent.path, true);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedContent]
+  );
+
+  const updateVideoProgressLocally = useCallback((path, newProgress) => {
+    console.log("Updating video progress locally:", path, newProgress);
     setVideoProgress((prev) => ({
       ...prev,
       [path]: newProgress,
     }));
-    try {
-      await axios.post("http://localhost:3001/api/progress", {
-        path,
-        progress: newProgress,
-      });
-    } catch (error) {
-      console.error("Error updating progress:", error);
-    }
-  };
+    localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
+    lastProgressUpdateRef.current[path] = newProgress;
+  }, []);
 
   const handleWatchedChange = async (path, isWatched) => {
     const updatedHistory = await videoHistoryService.updateHistory(
@@ -111,6 +152,26 @@ const App = () => {
       setVideoHistory(updatedHistory);
     }
   };
+
+  useEffect(() => {
+    let syncInterval;
+
+    if (selectedContent && selectedContent.type === "video") {
+      syncInterval = setInterval(() => {
+        const lastProgress =
+          lastProgressUpdateRef.current[selectedContent.path];
+        if (lastProgress) {
+          updateVideoProgressToBackend(selectedContent.path, lastProgress);
+        }
+      }, PROGRESS_UPDATE_INTERVAL);
+    }
+
+    return () => {
+      if (syncInterval) {
+        clearInterval(syncInterval);
+      }
+    };
+  }, [selectedContent, updateVideoProgressToBackend]);
 
   const customSort = (a, b) => {
     const aIsNumber = /^\d+/.test(a);
@@ -195,7 +256,10 @@ const App = () => {
             completePath
           )}`;
           const progress = videoProgress[filePath];
-          const progressPercentage = progress
+          const isWatched = videoHistory[filePath] || false;
+          const progressPercentage = isWatched
+            ? 100
+            : progress
             ? (progress.currentTime / progress.duration) * 100
             : 0;
 
@@ -212,7 +276,7 @@ const App = () => {
                 {value.type === "video" && (
                   <input
                     type="checkbox"
-                    checked={videoHistory[filePath] || false}
+                    checked={isWatched}
                     onChange={(e) =>
                       handleWatchedChange(filePath, e.target.checked)
                     }
@@ -223,9 +287,11 @@ const App = () => {
                 <span>{key}</span>
               </div>
               {value.type === "video" && (
-                <div className="ml-6 mr-2 bg-gray-200 rounded-full h-2 mb-2">
+                <div className="ml-6 mr-4 bg-gray-200 rounded-full h-2 mb-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full"
+                    className={`h-2 rounded-full ${
+                      isWatched ? "bg-green-500" : "bg-blue-600"
+                    }`}
                     style={{ width: `${progressPercentage}%` }}
                   ></div>
                 </div>

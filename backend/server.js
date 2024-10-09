@@ -47,6 +47,23 @@ async function getDirectoryStructure(dir, baseDir = "") {
   return structure;
 }
 
+async function readProgressFile() {
+  try {
+    const data = await fs.readFile(PROGRESS_FILE, "utf-8");
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+}
+
+// Función para escribir en el archivo de progreso
+async function writeProgressFile(data) {
+  await fs.writeFile(PROGRESS_FILE, JSON.stringify(data, null, 2));
+}
+
 app.post("/api/folder-structure", async (req, res) => {
   try {
     const { folderPath } = req.body;
@@ -81,32 +98,32 @@ app.get("/api/file/:encodedPath(*)", (req, res) => {
 
 app.get("/api/progress", async (req, res) => {
   try {
-    const progress = await fs.readFile(PROGRESS_FILE, "utf-8");
-    res.json(JSON.parse(progress));
+    const progress = await readProgressFile();
+    res.json(progress);
   } catch (error) {
-    if (error.code === "ENOENT") {
-      res.json({});
-    } else {
-      console.error("Error reading progress file:", error);
-      res.status(500).json({ error: "Error reading progress" });
-    }
+    console.error("Error reading progress file:", error);
+    res.status(500).json({ error: "Error reading progress" });
   }
 });
-
 app.post("/api/progress", async (req, res) => {
   try {
     const { path, progress } = req.body;
-    let allProgress = {};
-    try {
-      const existingProgress = await fs.readFile(PROGRESS_FILE, "utf-8");
-      allProgress = JSON.parse(existingProgress);
-    } catch (error) {
-      if (error.code !== "ENOENT") {
-        throw error;
-      }
+    console.log("Received progress update:", path, progress); // Log para depuración
+
+    if (
+      !path ||
+      !progress ||
+      typeof progress.currentTime === "undefined" ||
+      typeof progress.duration === "undefined"
+    ) {
+      return res.status(400).json({ error: "Invalid progress data" });
     }
+
+    let allProgress = await readProgressFile();
     allProgress[path] = progress;
-    await fs.writeFile(PROGRESS_FILE, JSON.stringify(allProgress));
+    await writeProgressFile(allProgress);
+
+    console.log("Progress updated successfully"); // Log para depuración
     res.json({ success: true });
   } catch (error) {
     console.error("Error updating progress:", error);
