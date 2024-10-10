@@ -3,13 +3,13 @@ import axios from "axios";
 const VIDEO_HISTORY_KEY = "videoHistory";
 
 export const videoHistoryService = {
-  async fetchHistory() {
+  async fetchHistory(courseId) {
     try {
       const response = await axios.get(
-        "http://localhost:3001/api/video-history"
+        `http://localhost:3001/api/video-history/${courseId}`
       );
       const history = response.data;
-      localStorage.setItem(VIDEO_HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(`${VIDEO_HISTORY_KEY}_${courseId}`, JSON.stringify(history));
       return history;
     } catch (error) {
       console.error("Error fetching video history:", error);
@@ -17,13 +17,13 @@ export const videoHistoryService = {
     }
   },
 
-  async updateHistory(videoPath, isWatched) {
+  async updateHistory(courseId, videoPath, isWatched) {
     try {
-      const history = JSON.parse(localStorage.getItem(VIDEO_HISTORY_KEY)) || {};
+      const history = JSON.parse(localStorage.getItem(`${VIDEO_HISTORY_KEY}_${courseId}`)) || {};
       history[videoPath] = isWatched;
-      localStorage.setItem(VIDEO_HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(`${VIDEO_HISTORY_KEY}_${courseId}`, JSON.stringify(history));
 
-      await axios.post("http://localhost:3001/api/video-history", {
+      await axios.post(`http://localhost:3001/api/video-history/${courseId}`, {
         videoPath,
         isWatched,
       });
@@ -35,12 +35,12 @@ export const videoHistoryService = {
     }
   },
 
-  getLocalHistory() {
-    return JSON.parse(localStorage.getItem(VIDEO_HISTORY_KEY)) || {};
+  getLocalHistory(courseId) {
+    return JSON.parse(localStorage.getItem(`${VIDEO_HISTORY_KEY}_${courseId}`)) || {};
   },
 
-  isVideoWatched(videoPath) {
-    const history = this.getLocalHistory();
+  isVideoWatched(courseId, videoPath) {
+    const history = this.getLocalHistory(courseId);
     return !!history[videoPath];
   },
 };

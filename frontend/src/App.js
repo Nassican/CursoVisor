@@ -27,30 +27,36 @@ const App = () => {
   const lastProgressUpdateRef = useRef({});
 
   useEffect(() => {
-    if (folderPath) {
+    if (folderPath && selectedCourse) {
       fetchFolderStructure();
     }
-    fetchVideoProgress();
-    fetchVideoHistory();
+    if (selectedCourse) {
+      fetchVideoProgress();
+      fetchVideoHistory();
+    }
     return () => {
       if (progressUpdateTimerRef.current) {
         clearInterval(progressUpdateTimerRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folderPath]);
+  }, [folderPath, selectedCourse]);
 
   const fetchVideoHistory = async () => {
-    const history = await videoHistoryService.fetchHistory();
-    setVideoHistory(history);
+    if (selectedCourse) {
+      const history = await videoHistoryService.fetchHistory(selectedCourse);
+      setVideoHistory(history);
+    }
   };
 
   const fetchVideoProgress = async () => {
-    try {
-      const response = await axios.get("http://localhost:3001/api/progress");
-      setVideoProgress(response.data);
-    } catch (error) {
-      console.error("Error fetching video progress:", error);
+    if (selectedCourse) {
+      try {
+        const response = await axios.get(`http://localhost:3001/api/progress/${selectedCourse}`);
+        setVideoProgress(response.data);
+      } catch (error) {
+        console.error("Error fetching video progress:", error);
+      }
     }
   };
 
@@ -73,18 +79,20 @@ const App = () => {
     }));
   };
 
-  const updateVideoProgressToBackend = useCallback(async (path, progress) => {
-    console.log("Attempting to update progress to backend:", path, progress);
-    try {
-      await axios.post("http://localhost:3001/api/progress", {
-        path,
-        progress,
-      });
-      console.log("Progress successfully updated to backend");
-    } catch (error) {
-      console.error("Error updating progress to backend:", error);
+  const updateVideoProgressToBackend = useCallback(async (videoPath, progress) => {
+    if (selectedCourse) {
+      console.log("Attempting to update progress to backend:", videoPath, progress);
+      try {
+        await axios.post(`http://localhost:3001/api/progress/${selectedCourse}`, {
+          path: videoPath,
+          progress,
+        });
+        console.log("Progress successfully updated to backend");
+      } catch (error) {
+        console.error("Error updating progress to backend:", error);
+      }
     }
-  }, []);
+  }, [selectedCourse]);
 
   const selectContent = useCallback(
     (type, filePath) => {
@@ -96,12 +104,10 @@ const App = () => {
         )}`,
       });
 
-      // Clear existing timer when selecting new content
       if (progressUpdateTimerRef.current) {
         clearInterval(progressUpdateTimerRef.current);
       }
 
-      // Start new timer for progress updates
       if (type === "video") {
         console.log("Setting up progress update timer for:", completePath);
         progressUpdateTimerRef.current = setInterval(() => {
@@ -144,14 +150,14 @@ const App = () => {
   }, []);
 
   const handleWatchedChange = async (path, isWatched) => {
-    const updatedHistory = await videoHistoryService.updateHistory(
-      path,
-      isWatched
-    );
-    if (updatedHistory) {
-      setVideoHistory(updatedHistory);
+    if (selectedCourse) {
+      const updatedHistory = await videoHistoryService.updateHistory(selectedCourse, path, isWatched);
+      if (updatedHistory) {
+        setVideoHistory(updatedHistory);
+      }
     }
   };
+
 
   useEffect(() => {
     let syncInterval;
