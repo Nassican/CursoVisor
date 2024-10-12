@@ -7,6 +7,8 @@ import {
   FileText,
   File,
   Home as HomeIcon,
+  XIcon,
+  MenuIcon,
 } from "lucide-react";
 import axios from "axios";
 import { videoHistoryService } from "./components/videoHistoryService";
@@ -26,6 +28,7 @@ const App = () => {
   const progressUpdateTimerRef = useRef(null);
   const lastProgressUpdateRef = useRef({});
   const [isVideoPaused, setIsVideoPaused] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (selectedCourse) {
@@ -46,6 +49,10 @@ const App = () => {
       const history = await videoHistoryService.fetchHistory(selectedCourse);
       setVideoHistory(history);
     }
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
   const fetchVideoProgress = async () => {
@@ -343,78 +350,98 @@ const App = () => {
         <Home onCourseSelect={handleCourseSelect} />
       ) : (
         <div className="flex flex-grow overflow-hidden">
-          <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
-              <button
-                onClick={goToHome}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                <HomeIcon size={24} />
-              </button>
-            </div>
-            {structure ? (
-              renderTree(structure)
-            ) : (
-              <p>Cargando estructura de carpetas...</p>
-            )}
-          </div>
-          <div className="w-3/4 p-4 overflow-y-auto">
-            {selectedContent && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-gray-700">
-                  {selectedCourse}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  {currentSection.replace(/\.[^/.]+$/, "")}
-                </p>
+          {isSidebarOpen && (
+            <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
+                <button
+                  onClick={goToHome}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  <HomeIcon size={24} />
+                </button>
               </div>
-            )}
-            {selectedContent ? (
-              selectedContent.type === "video" ? (
-                <video
-                  src={selectedContent.path}
-                  controls
-                  className="w-full rounded-lg shadow-lg"
-                  onTimeUpdate={handleVideoTimeUpdate}
-                  onPause={handleVideoPause}
-                  onPlay={handleVideoPlay}
-                  key={selectedContent.path}
-                  onLoadedMetadata={(e) => {
-                    const video = e.target;
-                    const savedProgress = videoProgress[selectedContent.path];
-                    if (
-                      savedProgress &&
-                      savedProgress.currentTime &&
-                      isFinite(savedProgress.currentTime)
-                    ) {
-                      video.currentTime = savedProgress.currentTime;
-                    }
-                  }}
-                />
-              ) : selectedContent.type === "html" ? (
-                <iframe
-                  title="Contenido HTML"
-                  src={selectedContent.path}
-                  className="w-full h-5/6 border-none rounded-lg shadow-lg"
-                />
+              {structure ? (
+                renderTree(structure)
               ) : (
-                <p className="text-gray-600">
-                  Este tipo de archivo no se puede previsualizar.
-                </p>
-              )
-            ) : (
-              <div className="grid items-center justify-center h-full">
-                <div className="grid items-center justify-center">
-                  <h3 className="text-lg font-semibold text-gray-600">
-                    {selectedCourse}
-                  </h3>
-                  <p className="text-gray-600">
-                    Selecciona un archivo para previsualizarlo.
-                  </p>
+                <p>Cargando estructura de carpetas...</p>
+              )}
+            </div>
+          )}
+          <div className={`${isSidebarOpen ? "w-3/4" : "w-full"} p-4`}>
+            <div className="w-full">
+              {selectedContent && (
+                <div>
+                  <div className="flex items-center">
+                    <button
+                      onClick={toggleSidebar}
+                      className="mr-4 text-gray-600 hover:text-gray-800"
+                    >
+                      {isSidebarOpen ? (
+                        <XIcon size={24} />
+                      ) : (
+                        <MenuIcon size={24} />
+                      )}
+                    </button>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2 text-gray-700">
+                        {selectedCourse}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {currentSection.replace(/\.[^/.]+$/, "")}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {selectedContent ? (
+                selectedContent.type === "video" ? (
+                  <video
+                    src={selectedContent.path}
+                    controls
+                    className="w-full rounded-lg shadow-2xl"
+                    onTimeUpdate={handleVideoTimeUpdate}
+                    onPause={handleVideoPause}
+                    onPlay={handleVideoPlay}
+                    key={selectedContent.path}
+                    onLoadedMetadata={(e) => {
+                      const video = e.target;
+                      const savedProgress = videoProgress[selectedContent.path];
+                      if (
+                        savedProgress &&
+                        savedProgress.currentTime &&
+                        isFinite(savedProgress.currentTime)
+                      ) {
+                        video.currentTime = savedProgress.currentTime;
+                      }
+                    }}
+                  />
+                ) : selectedContent.type === "html" ? (
+                  <div className="flex justify-center items-center h-full">
+                    <iframe
+                      title="Contenido HTML"
+                      src={selectedContent.path}
+                      className="w-full max-w-[75ch] min-h-screen border-spacing-10 rounded-lg shadow-2xl p-2"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-gray-600">
+                    Este tipo de archivo no se puede previsualizar.
+                  </p>
+                )
+              ) : (
+                <div className="grid items-center justify-center h-full">
+                  <div className="grid items-center justify-center">
+                    <h3 className="text-lg font-semibold text-gray-600">
+                      {selectedCourse}
+                    </h3>
+                    <p className="text-gray-600">
+                      Selecciona un archivo para previsualizarlo.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
