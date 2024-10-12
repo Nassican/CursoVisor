@@ -128,7 +128,9 @@ app.post("/api/progress/:courseId", async (req, res) => {
     const courseFolder = path.join(DEFAULT_FOLDER, courseId);
     const structure = await getDirectoryStructure(courseFolder);
     const totalVideos = countVideos(structure);
-    const videosWatched = Object.values(coursesData[courseId].progress).filter(p => p.currentTime === p.duration).length;
+    const videosWatched = Object.values(coursesData[courseId].progress).filter(
+      (p) => p.currentTime === p.duration
+    ).length;
 
     coursesData[courseId].totalVideos = totalVideos;
     coursesData[courseId].videosWatched = videosWatched;
@@ -166,7 +168,9 @@ app.post("/api/video-history/:courseId", async (req, res) => {
     coursesData[courseId].videos[videoPath] = isWatched;
 
     // Update videos watched count
-    const videosWatched = Object.values(coursesData[courseId].videos).filter(watched => watched).length;
+    const videosWatched = Object.values(coursesData[courseId].videos).filter(
+      (watched) => watched
+    ).length;
     coursesData[courseId].videosWatched = videosWatched;
 
     await writeCoursesDataFile(coursesData);
@@ -183,22 +187,26 @@ app.get("/api/courses", async (req, res) => {
     const courses = await fs.readdir(coursesDir, { withFileTypes: true });
     const coursesData = await readCoursesDataFile();
 
-    const courseList = await Promise.all(courses
-      .filter((dirent) => dirent.isDirectory())
-      .map(async (dirent) => {
-        const courseId = dirent.name;
-        const courseData = coursesData[courseId] || {};
-        const structure = await getDirectoryStructure(path.join(coursesDir, courseId));
-        const totalVideos = countVideos(structure);
+    const courseList = await Promise.all(
+      courses
+        .filter((dirent) => dirent.isDirectory())
+        .map(async (dirent) => {
+          const courseId = dirent.name;
+          const courseData = coursesData[courseId] || {};
+          const structure = await getDirectoryStructure(
+            path.join(coursesDir, courseId)
+          );
+          const totalVideos = countVideos(structure);
 
-        return {
-          id: courseId,
-          name: courseId.replace(/_/g, " "),
-          description: `Descripción del curso ${courseId}`,
-          totalVideos,
-          videosWatched: courseData.videosWatched || 0
-        };
-      }));
+          return {
+            id: courseId,
+            name: courseId.replace(/_/g, " "),
+            description: `Descripción del curso ${courseId}`,
+            totalVideos,
+            videosWatched: courseData.videosWatched || 0,
+          };
+        })
+    );
 
     res.json(courseList);
   } catch (error) {
@@ -210,9 +218,9 @@ app.get("/api/courses", async (req, res) => {
 function countVideos(structure) {
   let count = 0;
   for (const key in structure) {
-    if (typeof structure[key] === 'object' && structure[key].type === 'video') {
+    if (typeof structure[key] === "object" && structure[key].type === "video") {
       count++;
-    } else if (typeof structure[key] === 'object' && !structure[key].type) {
+    } else if (typeof structure[key] === "object" && !structure[key].type) {
       count += countVideos(structure[key]);
     }
   }

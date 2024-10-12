@@ -52,7 +52,9 @@ const App = () => {
   const fetchVideoProgress = async () => {
     if (selectedCourse) {
       try {
-        const response = await axios.get(`http://localhost:3001/api/progress/${selectedCourse}`);
+        const response = await axios.get(
+          `http://localhost:3001/api/progress/${selectedCourse}`
+        );
         setVideoProgress(response.data);
       } catch (error) {
         console.error("Error fetching video progress:", error);
@@ -79,20 +81,30 @@ const App = () => {
     }));
   };
 
-  const updateVideoProgressToBackend = useCallback(async (videoPath, progress) => {
-    if (selectedCourse) {
-      console.log("Attempting to update progress to backend:", videoPath, progress);
-      try {
-        await axios.post(`http://localhost:3001/api/progress/${selectedCourse}`, {
-          path: videoPath,
-          progress,
-        });
-        console.log("Progress successfully updated to backend");
-      } catch (error) {
-        console.error("Error updating progress to backend:", error);
+  const updateVideoProgressToBackend = useCallback(
+    async (videoPath, progress) => {
+      if (selectedCourse) {
+        console.log(
+          "Attempting to update progress to backend:",
+          videoPath,
+          progress
+        );
+        try {
+          await axios.post(
+            `http://localhost:3001/api/progress/${selectedCourse}`,
+            {
+              path: videoPath,
+              progress,
+            }
+          );
+          console.log("Progress successfully updated to backend");
+        } catch (error) {
+          console.error("Error updating progress to backend:", error);
+        }
       }
-    }
-  }, [selectedCourse]);
+    },
+    [selectedCourse]
+  );
 
   const selectContent = useCallback(
     (type, filePath) => {
@@ -151,13 +163,16 @@ const App = () => {
 
   const handleWatchedChange = async (path, isWatched) => {
     if (selectedCourse) {
-      const updatedHistory = await videoHistoryService.updateHistory(selectedCourse, path, isWatched);
+      const updatedHistory = await videoHistoryService.updateHistory(
+        selectedCourse,
+        path,
+        isWatched
+      );
       if (updatedHistory) {
         setVideoHistory(updatedHistory);
       }
     }
   };
-
 
   useEffect(() => {
     let syncInterval;
@@ -309,7 +324,7 @@ const App = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col bg-gray-100">
       {!selectedCourse ? (
         <Home onCourseSelect={handleCourseSelect} />
       ) : (
