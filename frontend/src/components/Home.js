@@ -28,12 +28,13 @@ const Home = ({ onCourseSelect }) => {
             className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
             onClick={() => onCourseSelect(course.id)}
           >
-            <div className="flex-grow">
-              <Folder size={48} className="text-blue-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">{course.name}</h2>
-              <p className="text-gray-600 mb-4">{course.description}</p>
+            <div className="flex flex-1 items-center">
+              <Folder className="text-blue-500 mr-4 min-w-10 min-h-10" />
+              <div>
+                <h2 className="text-xl font-medium mb-2">{course.name}</h2>
+              </div>
             </div>
-            <div className="mt-auto">
+            <div className="mt-auto pt-4">
               <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
                 <div
                   className="bg-blue-600 h-2.5 rounded-full"
