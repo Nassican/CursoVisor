@@ -25,12 +25,11 @@ const App = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const progressUpdateTimerRef = useRef(null);
   const lastProgressUpdateRef = useRef({});
+  const [isVideoPaused, setIsVideoPaused] = useState(true);
 
   useEffect(() => {
-    if (folderPath && selectedCourse) {
-      fetchFolderStructure();
-    }
     if (selectedCourse) {
+      fetchFolderStructure();
       fetchVideoProgress();
       fetchVideoHistory();
     }
@@ -40,7 +39,7 @@ const App = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folderPath, selectedCourse]);
+  }, [selectedCourse]);
 
   const fetchVideoHistory = async () => {
     if (selectedCourse) {
@@ -134,6 +133,33 @@ const App = () => {
     [selectedCourse, updateVideoProgressToBackend]
   );
 
+  const handleWatchedChange = useCallback(
+    async (path, isWatched) => {
+      if (selectedCourse) {
+        const updatedHistory = await videoHistoryService.updateHistory(
+          selectedCourse,
+          path,
+          isWatched
+        );
+        if (updatedHistory) {
+          setVideoHistory(updatedHistory);
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCourse, videoHistoryService]
+  );
+
+  const updateVideoProgressLocally = useCallback((path, newProgress) => {
+    console.log("Updating video progress locally:", path, newProgress);
+    setVideoProgress((prev) => ({
+      ...prev,
+      [path]: newProgress,
+    }));
+    localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
+    lastProgressUpdateRef.current[path] = newProgress;
+  }, []);
+
   const handleVideoTimeUpdate = useCallback(
     (e) => {
       const video = e.target;
@@ -147,37 +173,25 @@ const App = () => {
         handleWatchedChange(selectedContent.path, true);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedContent]
+    [selectedContent, handleWatchedChange, updateVideoProgressLocally]
   );
 
-  const updateVideoProgressLocally = useCallback((path, newProgress) => {
-    console.log("Updating video progress locally:", path, newProgress);
-    setVideoProgress((prev) => ({
-      ...prev,
-      [path]: newProgress,
-    }));
-    localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
-    lastProgressUpdateRef.current[path] = newProgress;
-  }, []);
-
-  const handleWatchedChange = async (path, isWatched) => {
-    if (selectedCourse) {
-      const updatedHistory = await videoHistoryService.updateHistory(
-        selectedCourse,
-        path,
-        isWatched
-      );
-      if (updatedHistory) {
-        setVideoHistory(updatedHistory);
-      }
+  const handleVideoPause = useCallback(() => {
+    setIsVideoPaused(true);
+    const lastProgress = lastProgressUpdateRef.current[selectedContent.path];
+    if (lastProgress) {
+      updateVideoProgressToBackend(selectedContent.path, lastProgress);
     }
-  };
+  }, [selectedContent, updateVideoProgressToBackend]);
+
+  const handleVideoPlay = useCallback(() => {
+    setIsVideoPaused(false);
+  }, []);
 
   useEffect(() => {
     let syncInterval;
 
-    if (selectedContent && selectedContent.type === "video") {
+    if (selectedContent && selectedContent.type === "video" && !isVideoPaused) {
       syncInterval = setInterval(() => {
         const lastProgress =
           lastProgressUpdateRef.current[selectedContent.path];
@@ -192,7 +206,7 @@ const App = () => {
         clearInterval(syncInterval);
       }
     };
-  }, [selectedContent, updateVideoProgressToBackend]);
+  }, [selectedContent, updateVideoProgressToBackend, isVideoPaused]);
 
   const customSort = (a, b) => {
     const aIsNumber = /^\d+/.test(a);
@@ -324,7 +338,7 @@ const App = () => {
   };
 
   return (
-    <div className="flex flex-col bg-gray-100">
+    <div className="flex flex-col h-screen bg-gray-100">
       {!selectedCourse ? (
         <Home onCourseSelect={handleCourseSelect} />
       ) : (
@@ -363,6 +377,8 @@ const App = () => {
                   controls
                   className="w-full rounded-lg shadow-lg"
                   onTimeUpdate={handleVideoTimeUpdate}
+                  onPause={handleVideoPause}
+                  onPlay={handleVideoPlay}
                   key={selectedContent.path}
                   onLoadedMetadata={(e) => {
                     const video = e.target;

@@ -124,13 +124,11 @@ app.post("/api/progress/:courseId", async (req, res) => {
     }
     coursesData[courseId].progress[videoPath] = progress;
 
-    // Update total videos and videos watched
+    // Actualizar total de videos y videos vistos
     const courseFolder = path.join(DEFAULT_FOLDER, courseId);
     const structure = await getDirectoryStructure(courseFolder);
     const totalVideos = countVideos(structure);
-    const videosWatched = Object.values(coursesData[courseId].progress).filter(
-      (p) => p.currentTime === p.duration
-    ).length;
+    const videosWatched = countWatchedVideos(coursesData[courseId]);
 
     coursesData[courseId].totalVideos = totalVideos;
     coursesData[courseId].videosWatched = videosWatched;
@@ -145,18 +143,6 @@ app.post("/api/progress/:courseId", async (req, res) => {
   }
 });
 
-app.get("/api/video-history/:courseId", async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const coursesData = await readCoursesDataFile();
-    const courseData = coursesData[courseId] || { videos: {}, progress: {} };
-    res.json(courseData.videos);
-  } catch (error) {
-    console.error("Error reading history:", error);
-    res.status(500).json({ error: "Error reading history" });
-  }
-});
-
 app.post("/api/video-history/:courseId", async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -167,10 +153,8 @@ app.post("/api/video-history/:courseId", async (req, res) => {
     }
     coursesData[courseId].videos[videoPath] = isWatched;
 
-    // Update videos watched count
-    const videosWatched = Object.values(coursesData[courseId].videos).filter(
-      (watched) => watched
-    ).length;
+    // Actualizar el conteo de videos vistos
+    const videosWatched = countWatchedVideos(coursesData[courseId]);
     coursesData[courseId].videosWatched = videosWatched;
 
     await writeCoursesDataFile(coursesData);
@@ -178,6 +162,18 @@ app.post("/api/video-history/:courseId", async (req, res) => {
   } catch (error) {
     console.error("Error updating history:", error);
     res.status(500).json({ error: "Error updating history" });
+  }
+});
+
+app.get("/api/video-history/:courseId", async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const coursesData = await readCoursesDataFile();
+    const courseData = coursesData[courseId] || { videos: {} };
+    res.json({ videos: courseData.videos });
+  } catch (error) {
+    console.error("Error reading video history:", error);
+    res.status(500).json({ error: "Error reading video history" });
   }
 });
 
@@ -225,6 +221,27 @@ function countVideos(structure) {
     }
   }
   return count;
+}
+
+function countWatchedVideos(courseData) {
+  const { videos, progress } = courseData;
+  const watchedVideos = new Set();
+
+  // Contar videos marcados como vistos
+  for (const [videoPath, isWatched] of Object.entries(videos)) {
+    if (isWatched) {
+      watchedVideos.add(videoPath);
+    }
+  }
+
+  // Contar videos con progreso completo
+  for (const [videoPath, videoProgress] of Object.entries(progress)) {
+    if (videoProgress.currentTime === videoProgress.duration) {
+      watchedVideos.add(videoPath);
+    }
+  }
+
+  return watchedVideos.size;
 }
 
 const PORT = process.env.PORT || 3001;
