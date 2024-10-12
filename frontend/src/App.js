@@ -7,12 +7,11 @@ import {
   FileText,
   File,
   Home as HomeIcon,
-  XIcon,
-  MenuIcon,
 } from "lucide-react";
 import axios from "axios";
 import { videoHistoryService } from "./components/videoHistoryService";
 import Home from "./components/Home";
+import * as SiIcons from "react-icons/si";
 
 const PROGRESS_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -22,19 +21,19 @@ const App = () => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [folderPath, setFolderPath] = useState("");
   const [videoProgress, setVideoProgress] = useState({});
-  const [currentSection, setCurrentSection] = useState("");
   const [videoHistory, setVideoHistory] = useState({});
   const [selectedCourse, setSelectedCourse] = useState(null);
   const progressUpdateTimerRef = useRef(null);
   const lastProgressUpdateRef = useRef({});
   const [isVideoPaused, setIsVideoPaused] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [courseInfo, setCourseInfo] = useState(null);
 
   useEffect(() => {
     if (selectedCourse) {
       fetchFolderStructure();
       fetchVideoProgress();
       fetchVideoHistory();
+      fetchCourseInfo();
     }
     return () => {
       if (progressUpdateTimerRef.current) {
@@ -51,8 +50,15 @@ const App = () => {
     }
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+  const fetchCourseInfo = async () => {
+    try {
+      const response = await axios.get(
+        `http://localhost:3001/api/courses/${selectedCourse}`
+      );
+      setCourseInfo(response.data);
+    } catch (error) {
+      console.error("Error fetching course info:", error);
+    }
   };
 
   const fetchVideoProgress = async () => {
@@ -311,7 +317,6 @@ const App = () => {
                 className="flex items-center cursor-pointer p-2 hover:bg-gray-100"
                 onClick={() => {
                   selectContent(value.type, value.path);
-                  setCurrentSection(key);
                 }}
               >
                 <FileIcon size={16} className={`mr-2 ${iconColor}`} />
@@ -350,47 +355,39 @@ const App = () => {
         <Home onCourseSelect={handleCourseSelect} />
       ) : (
         <div className="flex flex-grow overflow-hidden">
-          {isSidebarOpen && (
-            <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
-                <button
-                  onClick={goToHome}
-                  className="text-blue-500 hover:text-blue-700"
-                >
-                  <HomeIcon size={24} />
-                </button>
-              </div>
-              {structure ? (
-                renderTree(structure)
-              ) : (
-                <p>Cargando estructura de carpetas...</p>
-              )}
+          <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
+              <button
+                onClick={goToHome}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                <HomeIcon size={24} />
+              </button>
             </div>
-          )}
-          <div className={`${isSidebarOpen ? "w-3/4" : "w-full"} p-4`}>
-            <div className="w-full">
-              {selectedContent && (
-                <div>
-                  <div className="flex items-center">
-                    <button
-                      onClick={toggleSidebar}
-                      className="mr-4 text-gray-600 hover:text-gray-800"
-                    >
-                      {isSidebarOpen ? (
-                        <XIcon size={24} />
-                      ) : (
-                        <MenuIcon size={24} />
-                      )}
-                    </button>
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 text-gray-700">
-                        {selectedCourse}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {currentSection.replace(/\.[^/.]+$/, "")}
-                      </p>
-                    </div>
+            {structure ? (
+              renderTree(structure)
+            ) : (
+              <p>Cargando estructura de carpetas...</p>
+            )}
+          </div>
+
+          <div className="w-full p-4">
+            <div className="w-full h-screen">
+              {courseInfo && (
+                <div className="mb-4 flex items-center">
+                  {courseInfo.icon && SiIcons[courseInfo.icon] ? (
+                    SiIcons[courseInfo.icon]({
+                      size: 24,
+                      className: "text-gray-500 mr-4",
+                    })
+                  ) : (
+                    <Folder size={24} className="text-gray-500 mr-4" />
+                  )}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-500">
+                      {courseInfo.name}
+                    </h3>
                   </div>
                 </div>
               )}
@@ -430,14 +427,26 @@ const App = () => {
                   </p>
                 )
               ) : (
-                <div className="grid items-center justify-center h-full">
-                  <div className="grid items-center justify-center">
-                    <h3 className="text-lg font-semibold text-gray-600">
-                      {selectedCourse}
-                    </h3>
-                    <p className="text-gray-600">
-                      Selecciona un archivo para previsualizarlo.
-                    </p>
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    {courseInfo && (
+                      <div className="mb-8 flex flex-col items-center">
+                        {courseInfo.icon && SiIcons[courseInfo.icon] ? (
+                          SiIcons[courseInfo.icon]({
+                            size: 256,
+                            className: "text-blue-500 mb-4",
+                          })
+                        ) : (
+                          <Folder size={256} className="text-blue-500 mb-4" />
+                        )}
+                        <h3 className="text-2xl font-bold mb-2">
+                          {courseInfo.name}
+                        </h3>
+                        <p className="text-lg text-gray-600 mb-4">
+                          Selecciona un archivo para visualizarlo.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

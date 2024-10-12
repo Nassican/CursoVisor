@@ -10,6 +10,46 @@ app.use(express.json());
 const DEFAULT_FOLDER = path.join(__dirname, "cursos_videos");
 const COURSES_DATA_FILE = path.join(__dirname, "courses_data.json");
 
+async function initializeCoursesData() {
+  try {
+    // Verificar si el archivo courses_data.json ya existe
+    await fs.access(COURSES_DATA_FILE);
+    console.log(
+      "El archivo courses_data.json ya existe. No se inicializará la estructura."
+    );
+  } catch (error) {
+    // Si el archivo no existe, inicializar la estructura
+    console.log("Inicializando la estructura de cursos...");
+    const coursesDir = path.join(__dirname, "cursos_videos");
+    const courses = await fs.readdir(coursesDir, { withFileTypes: true });
+    let coursesData = {};
+
+    for (const course of courses.filter((dirent) => dirent.isDirectory())) {
+      const courseId = course.name;
+      const structure = await getDirectoryStructure(
+        path.join(coursesDir, courseId)
+      );
+      const totalVideos = countVideos(structure);
+
+      coursesData[courseId] = {
+        id: courseId,
+        name: courseId.replace(/_/g, " "),
+        description: `Descripción del curso ${courseId}`,
+        totalVideos,
+        videosWatched: 0,
+        icon: "SiFolder", // Icono por defecto
+        videos: {},
+        progress: {},
+      };
+    }
+
+    await writeCoursesDataFile(coursesData);
+    console.log(
+      "Estructura de cursos inicializada y guardada en courses_data.json"
+    );
+  }
+}
+
 function encodePathComponent(component) {
   return encodeURIComponent(component).replace(/%2F/g, "/");
 }
@@ -95,7 +135,11 @@ app.get("/api/progress/:courseId", async (req, res) => {
   try {
     const { courseId } = req.params;
     const coursesData = await readCoursesDataFile();
-    const courseData = coursesData[courseId] || { videos: {}, progress: {} };
+    const courseData = coursesData[courseId] || {
+      videos: {},
+      progress: {},
+      icon: {},
+    };
     res.json(courseData.progress);
   } catch (error) {
     console.error("Error reading progress:", error);
@@ -140,6 +184,26 @@ app.post("/api/progress/:courseId", async (req, res) => {
   } catch (error) {
     console.error("Error updating progress:", error);
     res.status(500).json({ error: "Error updating progress" });
+  }
+});
+
+app.post("/api/courses/:courseId/icon", async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { icon } = req.body;
+    let coursesData = await readCoursesDataFile();
+
+    if (!coursesData[courseId]) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    coursesData[courseId].icon = icon;
+    await writeCoursesDataFile(coursesData);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating course icon:", error);
+    res.status(500).json({ error: "Error updating course icon" });
   }
 });
 
@@ -200,6 +264,7 @@ app.get("/api/courses", async (req, res) => {
             description: `Descripción del curso ${courseId}`,
             totalVideos,
             videosWatched: courseData.videosWatched || 0,
+            icon: courseData.icon || "Folder", // Añadimos esta línea
           };
         })
     );
@@ -208,6 +273,21 @@ app.get("/api/courses", async (req, res) => {
   } catch (error) {
     console.error("Error fetching courses:", error);
     res.status(500).json({ error: "Error fetching courses" });
+  }
+});
+
+app.get("/api/courses/:courseId", async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const coursesData = await readCoursesDataFile();
+    const courseData = coursesData[courseId];
+    if (!courseData) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+    res.json(courseData);
+  } catch (error) {
+    console.error("Error fetching course data:", error);
+    res.status(500).json({ error: "Error fetching course data" });
   }
 });
 
@@ -244,7 +324,13 @@ function countWatchedVideos(courseData) {
   return watchedVideos.size;
 }
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+initializeCoursesData()
+  .then(() => {
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Error al inicializar la estructura de cursos:", error);
+  });
