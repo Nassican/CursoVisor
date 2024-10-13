@@ -11,6 +11,7 @@ import {
 import axios from "axios";
 import { videoHistoryService } from "./components/videoHistoryService";
 import Home from "./components/Home";
+import * as SiIcons from "react-icons/si";
 
 const PROGRESS_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -20,37 +21,56 @@ const App = () => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [folderPath, setFolderPath] = useState("");
   const [videoProgress, setVideoProgress] = useState({});
-  const [currentSection, setCurrentSection] = useState("");
   const [videoHistory, setVideoHistory] = useState({});
   const [selectedCourse, setSelectedCourse] = useState(null);
   const progressUpdateTimerRef = useRef(null);
   const lastProgressUpdateRef = useRef({});
+  const [isVideoPaused, setIsVideoPaused] = useState(true);
+  const [courseInfo, setCourseInfo] = useState(null);
 
   useEffect(() => {
-    if (folderPath) {
+    if (selectedCourse) {
       fetchFolderStructure();
+      fetchVideoProgress();
+      fetchVideoHistory();
+      fetchCourseInfo();
     }
-    fetchVideoProgress();
-    fetchVideoHistory();
     return () => {
       if (progressUpdateTimerRef.current) {
         clearInterval(progressUpdateTimerRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folderPath]);
+  }, [selectedCourse]);
 
   const fetchVideoHistory = async () => {
-    const history = await videoHistoryService.fetchHistory();
-    setVideoHistory(history);
+    if (selectedCourse) {
+      const history = await videoHistoryService.fetchHistory(selectedCourse);
+      setVideoHistory(history);
+    }
+  };
+
+  const fetchCourseInfo = async () => {
+    try {
+      const response = await axios.get(
+        `http://localhost:3001/api/courses/${selectedCourse}`
+      );
+      setCourseInfo(response.data);
+    } catch (error) {
+      console.error("Error fetching course info:", error);
+    }
   };
 
   const fetchVideoProgress = async () => {
-    try {
-      const response = await axios.get("http://localhost:3001/api/progress");
-      setVideoProgress(response.data);
-    } catch (error) {
-      console.error("Error fetching video progress:", error);
+    if (selectedCourse) {
+      try {
+        const response = await axios.get(
+          `http://localhost:3001/api/progress/${selectedCourse}`
+        );
+        setVideoProgress(response.data);
+      } catch (error) {
+        console.error("Error fetching video progress:", error);
+      }
     }
   };
 
@@ -73,18 +93,30 @@ const App = () => {
     }));
   };
 
-  const updateVideoProgressToBackend = useCallback(async (path, progress) => {
-    console.log("Attempting to update progress to backend:", path, progress);
-    try {
-      await axios.post("http://localhost:3001/api/progress", {
-        path,
-        progress,
-      });
-      console.log("Progress successfully updated to backend");
-    } catch (error) {
-      console.error("Error updating progress to backend:", error);
-    }
-  }, []);
+  const updateVideoProgressToBackend = useCallback(
+    async (videoPath, progress) => {
+      if (selectedCourse) {
+        console.log(
+          "Attempting to update progress to backend:",
+          videoPath,
+          progress
+        );
+        try {
+          await axios.post(
+            `http://localhost:3001/api/progress/${selectedCourse}`,
+            {
+              path: videoPath,
+              progress,
+            }
+          );
+          console.log("Progress successfully updated to backend");
+        } catch (error) {
+          console.error("Error updating progress to backend:", error);
+        }
+      }
+    },
+    [selectedCourse]
+  );
 
   const selectContent = useCallback(
     (type, filePath) => {
@@ -96,12 +128,10 @@ const App = () => {
         )}`,
       });
 
-      // Clear existing timer when selecting new content
       if (progressUpdateTimerRef.current) {
         clearInterval(progressUpdateTimerRef.current);
       }
 
-      // Start new timer for progress updates
       if (type === "video") {
         console.log("Setting up progress update timer for:", completePath);
         progressUpdateTimerRef.current = setInterval(() => {
@@ -116,6 +146,33 @@ const App = () => {
     [selectedCourse, updateVideoProgressToBackend]
   );
 
+  const handleWatchedChange = useCallback(
+    async (path, isWatched) => {
+      if (selectedCourse) {
+        const updatedHistory = await videoHistoryService.updateHistory(
+          selectedCourse,
+          path,
+          isWatched
+        );
+        if (updatedHistory) {
+          setVideoHistory(updatedHistory);
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCourse, videoHistoryService]
+  );
+
+  const updateVideoProgressLocally = useCallback((path, newProgress) => {
+    console.log("Updating video progress locally:", path, newProgress);
+    setVideoProgress((prev) => ({
+      ...prev,
+      [path]: newProgress,
+    }));
+    localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
+    lastProgressUpdateRef.current[path] = newProgress;
+  }, []);
+
   const handleVideoTimeUpdate = useCallback(
     (e) => {
       const video = e.target;
@@ -129,34 +186,25 @@ const App = () => {
         handleWatchedChange(selectedContent.path, true);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedContent]
+    [selectedContent, handleWatchedChange, updateVideoProgressLocally]
   );
 
-  const updateVideoProgressLocally = useCallback((path, newProgress) => {
-    console.log("Updating video progress locally:", path, newProgress);
-    setVideoProgress((prev) => ({
-      ...prev,
-      [path]: newProgress,
-    }));
-    localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
-    lastProgressUpdateRef.current[path] = newProgress;
-  }, []);
-
-  const handleWatchedChange = async (path, isWatched) => {
-    const updatedHistory = await videoHistoryService.updateHistory(
-      path,
-      isWatched
-    );
-    if (updatedHistory) {
-      setVideoHistory(updatedHistory);
+  const handleVideoPause = useCallback(() => {
+    setIsVideoPaused(true);
+    const lastProgress = lastProgressUpdateRef.current[selectedContent.path];
+    if (lastProgress) {
+      updateVideoProgressToBackend(selectedContent.path, lastProgress);
     }
-  };
+  }, [selectedContent, updateVideoProgressToBackend]);
+
+  const handleVideoPlay = useCallback(() => {
+    setIsVideoPaused(false);
+  }, []);
 
   useEffect(() => {
     let syncInterval;
 
-    if (selectedContent && selectedContent.type === "video") {
+    if (selectedContent && selectedContent.type === "video" && !isVideoPaused) {
       syncInterval = setInterval(() => {
         const lastProgress =
           lastProgressUpdateRef.current[selectedContent.path];
@@ -171,7 +219,7 @@ const App = () => {
         clearInterval(syncInterval);
       }
     };
-  }, [selectedContent, updateVideoProgressToBackend]);
+  }, [selectedContent, updateVideoProgressToBackend, isVideoPaused]);
 
   const customSort = (a, b) => {
     const aIsNumber = /^\d+/.test(a);
@@ -269,7 +317,6 @@ const App = () => {
                 className="flex items-center cursor-pointer p-2 hover:bg-gray-100"
                 onClick={() => {
                   selectContent(value.type, value.path);
-                  setCurrentSection(key);
                 }}
               >
                 <FileIcon size={16} className={`mr-2 ${iconColor}`} />
@@ -324,60 +371,86 @@ const App = () => {
               <p>Cargando estructura de carpetas...</p>
             )}
           </div>
-          <div className="w-3/4 p-4 overflow-y-auto">
-            {selectedContent && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2 text-gray-700">
-                  {selectedCourse}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  {currentSection.replace(/\.[^/.]+$/, "")}
-                </p>
-              </div>
-            )}
-            {selectedContent ? (
-              selectedContent.type === "video" ? (
-                <video
-                  src={selectedContent.path}
-                  controls
-                  className="w-full rounded-lg shadow-lg"
-                  onTimeUpdate={handleVideoTimeUpdate}
-                  key={selectedContent.path}
-                  onLoadedMetadata={(e) => {
-                    const video = e.target;
-                    const savedProgress = videoProgress[selectedContent.path];
-                    if (
-                      savedProgress &&
-                      savedProgress.currentTime &&
-                      isFinite(savedProgress.currentTime)
-                    ) {
-                      video.currentTime = savedProgress.currentTime;
-                    }
-                  }}
-                />
-              ) : selectedContent.type === "html" ? (
-                <iframe
-                  title="Contenido HTML"
-                  src={selectedContent.path}
-                  className="w-full h-5/6 border-none rounded-lg shadow-lg"
-                />
-              ) : (
-                <p className="text-gray-600">
-                  Este tipo de archivo no se puede previsualizar.
-                </p>
-              )
-            ) : (
-              <div className="grid items-center justify-center h-full">
-                <div className="grid items-center justify-center">
-                  <h3 className="text-lg font-semibold text-gray-600">
-                    {selectedCourse}
-                  </h3>
-                  <p className="text-gray-600">
-                    Selecciona un archivo para previsualizarlo.
-                  </p>
+
+          <div className="w-full p-4">
+            <div className="w-full h-screen">
+              {courseInfo && (
+                <div className="mb-4 flex items-center">
+                  {courseInfo.icon && SiIcons[courseInfo.icon] ? (
+                    SiIcons[courseInfo.icon]({
+                      size: 24,
+                      className: "text-gray-500 mr-4",
+                    })
+                  ) : (
+                    <Folder size={24} className="text-gray-500 mr-4" />
+                  )}
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-500">
+                      {courseInfo.name}
+                    </h3>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {selectedContent ? (
+                selectedContent.type === "video" ? (
+                  <video
+                    src={selectedContent.path}
+                    controls
+                    className="w-full rounded-lg shadow-2xl"
+                    onTimeUpdate={handleVideoTimeUpdate}
+                    onPause={handleVideoPause}
+                    onPlay={handleVideoPlay}
+                    key={selectedContent.path}
+                    onLoadedMetadata={(e) => {
+                      const video = e.target;
+                      const savedProgress = videoProgress[selectedContent.path];
+                      if (
+                        savedProgress &&
+                        savedProgress.currentTime &&
+                        isFinite(savedProgress.currentTime)
+                      ) {
+                        video.currentTime = savedProgress.currentTime;
+                      }
+                    }}
+                  />
+                ) : selectedContent.type === "html" ? (
+                  <div className="flex justify-center items-center h-full">
+                    <iframe
+                      title="Contenido HTML"
+                      src={selectedContent.path}
+                      className="w-full max-w-[75ch] min-h-screen border-spacing-10 rounded-lg shadow-2xl p-2"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-gray-600">
+                    Este tipo de archivo no se puede previsualizar.
+                  </p>
+                )
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    {courseInfo && (
+                      <div className="mb-8 flex flex-col items-center">
+                        {courseInfo.icon && SiIcons[courseInfo.icon] ? (
+                          SiIcons[courseInfo.icon]({
+                            size: 256,
+                            className: "text-blue-500 mb-4",
+                          })
+                        ) : (
+                          <Folder size={256} className="text-blue-500 mb-4" />
+                        )}
+                        <h3 className="text-2xl font-bold mb-2">
+                          {courseInfo.name}
+                        </h3>
+                        <p className="text-lg text-gray-600 mb-4">
+                          Selecciona un archivo para visualizarlo.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -2,8 +2,7 @@ node_modules/
 .env
 backend/cursos_videos/
 
-backend/video_history.json
-backend/video_progress.json
+backend/courses_data.json
 backend/expanded_folders.json
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
