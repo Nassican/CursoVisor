@@ -6,6 +6,7 @@ import {
   FileVideo,
   FileText,
   File,
+  FileTextIcon as FilePdf,
   Home as HomeIcon,
 } from "lucide-react";
 import axios from "axios";
@@ -292,12 +293,16 @@ const App = () => {
               ? FileVideo
               : value.type === "html"
               ? FileText
+              : value.type === "pdf"
+              ? FilePdf
               : File;
           let iconColor =
             value.type === "video"
               ? "text-red-500"
               : value.type === "html"
               ? "text-green-500"
+              : value.type === "pdf"
+              ? "text-blue-500"
               : "text-gray-500";
           const completePath = `${selectedCourse}/${value.path}`;
           const filePath = `http://localhost:3001/api/file/${encodeURIComponent(
@@ -313,36 +318,40 @@ const App = () => {
 
           return (
             <div key={currentPath} className="flex flex-col">
-              <div
-                className="flex items-center cursor-pointer p-2 hover:bg-gray-100"
-                onClick={() => {
-                  selectContent(value.type, value.path);
-                }}
-              >
-                <FileIcon size={16} className={`mr-2 ${iconColor}`} />
-                {value.type === "video" && (
-                  <input
-                    type="checkbox"
-                    checked={isWatched}
-                    onChange={(e) =>
-                      handleWatchedChange(filePath, e.target.checked)
-                    }
-                    className="ml-2 mr-2"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                )}
-                <span>{key}</span>
-              </div>
-              {value.type === "video" && (
-                <div className="ml-6 mr-4 bg-gray-200 rounded-full h-2 mb-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      isWatched ? "bg-green-500" : "bg-blue-600"
-                    }`}
-                    style={{ width: `${progressPercentage}%` }}
-                  ></div>
+              <div className="hover:bg-gray-100">
+                <div
+                  className="cursor-pointer p-2 "
+                  onClick={() => {
+                    selectContent(value.type, value.path);
+                  }}
+                >
+                  <div className="flex items-center mb-2">
+                    <FileIcon size={16} className={`mr-2 ${iconColor}`} />
+                    {value.type === "video" && (
+                      <input
+                        type="checkbox"
+                        checked={isWatched}
+                        onChange={(e) =>
+                          handleWatchedChange(filePath, e.target.checked)
+                        }
+                        className="ml-2 mr-2"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    <span>{key}</span>
+                  </div>
+                  {value.type === "video" && (
+                    <div className="ml-6 mr-4 bg-gray-200 rounded-full h-2 mb-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          isWatched ? "bg-green-500" : "bg-blue-600"
+                        }`}
+                        style={{ width: `${progressPercentage}%` }}
+                      ></div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           );
         }
@@ -419,6 +428,14 @@ const App = () => {
                       title="Contenido HTML"
                       src={selectedContent.path}
                       className="w-full max-w-[75ch] min-h-screen border-spacing-10 rounded-lg shadow-2xl p-2"
+                    />
+                  </div>
+                ) : selectedContent.type === "pdf" ? (
+                  <div className="flex justify-center items-center h-full">
+                    <iframe
+                      title="Contenido PDF"
+                      src={`${selectedContent.path}#toolbar=0`}
+                      className="w-full h-screen rounded-lg shadow-2xl"
                     />
                   </div>
                 ) : (

@@ -71,9 +71,9 @@ async function getDirectoryStructure(dir, baseDir = "") {
         );
       } else {
         const ext = path.extname(file.name).toLowerCase();
-        if (ext === ".mp4" || ext === ".html") {
+        if (ext === ".mp4" || ext === ".html" || ext === ".pdf") {
           structure[file.name] = {
-            type: ext === ".mp4" ? "video" : "html",
+            type: ext === ".mp4" ? "video" : ext === ".html" ? "html" : "pdf",
             path: encodedPath,
             watched: false,
           };
