@@ -382,7 +382,7 @@ const App = () => {
           </div>
 
           <div className="w-full p-4">
-            <div className="w-full h-screen">
+            <div className="w-full h-screen mb-2">
               {courseInfo && (
                 <div className="mb-4 flex items-center">
                   {courseInfo.icon && SiIcons[courseInfo.icon] ? (
@@ -423,19 +423,19 @@ const App = () => {
                     }}
                   />
                 ) : selectedContent.type === "html" ? (
-                  <div className="flex justify-center items-center h-full">
+                  <div className="flex justify-center items-center">
                     <iframe
                       title="Contenido HTML"
                       src={selectedContent.path}
-                      className="w-full max-w-[75ch] min-h-screen border-spacing-10 rounded-lg shadow-2xl p-2"
+                      className="w-full max-w-[75ch] h-[90vh] border-spacing-10 rounded-lg shadow-2xl p-2"
                     />
                   </div>
                 ) : selectedContent.type === "pdf" ? (
-                  <div className="flex justify-center items-center h-full">
+                  <div className="flex justify-center items-center mb-2">
                     <iframe
                       title="Contenido PDF"
                       src={`${selectedContent.path}#toolbar=0`}
-                      className="w-full h-screen rounded-lg shadow-2xl"
+                      className="w-full h-[90vh] rounded-lg shadow-2xl"
                     />
                   </div>
                 ) : (
