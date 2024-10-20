@@ -13,6 +13,7 @@ import axios from "axios";
 import { videoHistoryService } from "./components/videoHistoryService";
 import Home from "./components/Home";
 import * as SiIcons from "react-icons/si";
+import PDFViewer from "./components/PDFViewer";
 
 const PROGRESS_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -431,11 +432,15 @@ const App = () => {
                     />
                   </div>
                 ) : selectedContent.type === "pdf" ? (
-                  <div className="flex justify-center items-center mb-2">
-                    <iframe
-                      title="Contenido PDF"
-                      src={`${selectedContent.path}#toolbar=0`}
-                      className="w-full h-[90vh] rounded-lg shadow-2xl"
+                  <div className="flex justify-center w-full h-[90vh] items-center mb-2">
+                    <PDFViewer
+                      pdfUrl={`${selectedContent.path}`}
+                      onProgressChange={(currentPage, totalPages) => {
+                        updateVideoProgressLocally(selectedContent.path, {
+                          currentTime: currentPage,
+                          duration: totalPages,
+                        });
+                      }}
                     />
                   </div>
                 ) : (

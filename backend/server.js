@@ -117,18 +117,28 @@ app.post("/api/folder-structure", async (req, res) => {
   }
 });
 
-app.get("/api/file/:encodedPath(*)", (req, res) => {
+app.get("/api/file/:encodedPath(*)", async (req, res) => {
   const filePath = decodeURIComponent(req.params.encodedPath);
   const fullPath = path.join(DEFAULT_FOLDER, filePath);
 
-  fs.access(fullPath)
-    .then(() => {
+  try {
+    await fs.access(fullPath);
+    const fileContent = await fs.readFile(fullPath);
+
+    if (path.extname(fullPath).toLowerCase() === ".pdf") {
+      res.contentType("application/pdf");
+      res.set(
+        "Content-Disposition",
+        `inline; filename="${path.basename(filePath)}"`
+      );
+      res.send(fileContent);
+    } else {
       res.sendFile(fullPath);
-    })
-    .catch((error) => {
-      console.error("Error: File not found", fullPath, error);
-      res.status(404).send("File not found");
-    });
+    }
+  } catch (error) {
+    console.error("Error: File not found or inaccessible", fullPath, error);
+    res.status(404).send("File not found or inaccessible");
+  }
 });
 
 app.get("/api/progress/:courseId", async (req, res) => {
