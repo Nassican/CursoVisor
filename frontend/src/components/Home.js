@@ -56,32 +56,38 @@ const Home = ({ onCourseSelect }) => {
                 key={course.id}
                 className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
               >
-                <div className="flex flex-1 items-center justify-between">
-                  <div
-                    className="flex items-center"
-                    onClick={() => onCourseSelect(course.id)}
+                <div className="flex flex-1 items-center justify-start">
+                  <button
+                    onClick={() => {
+                      setSelectedCourse(course);
+                      setIsIconSelectorOpen(true);
+                    }}
+                    className="hover:bg-gray-200 rounded-lg p-2 group relative"
+                    aria-label="Cambiar icono del curso"
                   >
                     <IconComponent
-                      className="text-blue-500 mr-4 min-w-10 min-h-10"
+                      className="text-blue-500 min-w-10 min-h-10"
                       size={24}
                     />
+                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      Cambiar icono
+                    </span>
+                  </button>
+                  <div
+                    className="flex items-center ml-4 cursor-pointer"
+                    onClick={() => onCourseSelect(course.id)}
+                  >
                     <div>
                       <h2 className="text-xl font-medium mb-2">
                         {course.name}
                       </h2>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedCourse(course);
-                      setIsIconSelectorOpen(true);
-                    }}
-                    className="text-gray-500 hover:text-blue-500"
-                  >
-                    Cambiar icono
-                  </button>
                 </div>
-                <div className="mt-auto pt-4">
+                <div
+                  className="mt-auto pt-4 cursor-pointer"
+                  onClick={() => onCourseSelect(course.id)}
+                >
                   <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
                     <div
                       className="bg-blue-600 h-2.5 rounded-full"

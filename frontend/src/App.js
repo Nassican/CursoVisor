@@ -365,21 +365,25 @@ const App = () => {
         <Home onCourseSelect={handleCourseSelect} />
       ) : (
         <div className="flex flex-grow overflow-hidden">
-          <div className="w-1/4 bg-white border-r shadow-md overflow-y-auto">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
-              <button
-                onClick={goToHome}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                <HomeIcon size={24} />
-              </button>
+          <div className="w-1/4 bg-white border-r shadow-md flex flex-col">
+            <div className="sticky top-0 z-10 bg-white border-b">
+              <div className="flex items-center justify-between p-4">
+                <h2 className="text-xl font-bold text-gray-800">CursoVisor</h2>
+                <button
+                  onClick={goToHome}
+                  className="text-blue-500 hover:text-blue-700"
+                >
+                  <HomeIcon size={24} />
+                </button>
+              </div>
             </div>
-            {structure ? (
-              renderTree(structure)
-            ) : (
-              <p>Cargando estructura de carpetas...</p>
-            )}
+            <div className="overflow-y-auto flex-grow">
+              {structure ? (
+                renderTree(structure)
+              ) : (
+                <p>Cargando estructura de carpetas...</p>
+              )}
+            </div>
           </div>
 
           <div className="w-full p-4">
