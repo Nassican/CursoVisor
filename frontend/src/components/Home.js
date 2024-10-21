@@ -98,13 +98,13 @@ const Home = ({ onCourseSelect }) => {
                       className="bg-blue-600 h-2.5 rounded-full"
                       style={{
                         width: `${
-                          (course.videosWatched / course.totalVideos) * 100
+                          (course.filesWatched / course.totalFiles) * 100
                         }%`,
                       }}
                     ></div>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {course.videosWatched} / {course.totalVideos} videos vistos
+                    {course.filesWatched} / {course.totalFiles} archivos vistos
                   </p>
                 </div>
               </div>
