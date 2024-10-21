@@ -8,6 +8,7 @@ const Home = ({ onCourseSelect }) => {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
+  const [isLoadingModalOpen, setIsLoadingModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCourses();
@@ -59,8 +60,12 @@ const Home = ({ onCourseSelect }) => {
                 <div className="flex flex-1 items-center justify-start">
                   <button
                     onClick={() => {
-                      setSelectedCourse(course);
-                      setIsIconSelectorOpen(true);
+                      setIsLoadingModalOpen(true);
+                      setTimeout(() => {
+                        setIsLoadingModalOpen(false);
+                        setSelectedCourse(course);
+                        setIsIconSelectorOpen(true);
+                      }, 100);
                     }}
                     className="hover:bg-gray-200 rounded-lg p-2 group relative"
                     aria-label="Cambiar icono del curso"
@@ -107,6 +112,21 @@ const Home = ({ onCourseSelect }) => {
           })}
         </div>
       </div>
+      {isLoadingModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full mx-4">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+              <p className="mt-6 text-center text-lg font-semibold text-gray-700">
+                Cargando selector de iconos...
+              </p>
+              <p className="mt-2 text-center text-sm text-gray-500">
+                Esto solo tomará un momento
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {isIconSelectorOpen && (
         <IconSelector
           onClose={() => setIsIconSelectorOpen(false)}
