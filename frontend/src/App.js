@@ -10,7 +10,7 @@ import {
   Home as HomeIcon,
 } from "lucide-react";
 import axios from "axios";
-import { videoHistoryService } from "./components/videoHistoryService";
+import { fileHistoryService } from "./components/fileHistoryService";
 import Home from "./components/Home";
 import * as SiIcons from "react-icons/si";
 import PDFViewer from "./components/PDFViewer";
@@ -47,7 +47,7 @@ const App = () => {
 
   const fetchVideoHistory = async () => {
     if (selectedCourse) {
-      const history = await videoHistoryService.fetchHistory(selectedCourse);
+      const history = await fileHistoryService.fetchHistory(selectedCourse);
       setVideoHistory(history);
     }
   };
@@ -147,24 +147,6 @@ const App = () => {
     },
     [selectedCourse, updateVideoProgressToBackend]
   );
-
-  const handleWatchedChange = useCallback(
-    async (path, isWatched) => {
-      if (selectedCourse) {
-        const updatedHistory = await videoHistoryService.updateHistory(
-          selectedCourse,
-          path,
-          isWatched
-        );
-        if (updatedHistory) {
-          setVideoHistory(updatedHistory);
-        }
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedCourse, videoHistoryService]
-  );
-
   const updateVideoProgressLocally = useCallback((path, newProgress) => {
     console.log("Updating video progress locally:", path, newProgress);
     setVideoProgress((prev) => ({
@@ -174,6 +156,34 @@ const App = () => {
     localStorage.setItem(`videoProgress_${path}`, JSON.stringify(newProgress));
     lastProgressUpdateRef.current[path] = newProgress;
   }, []);
+
+  const handleWatchedChange = useCallback(
+    async (path, isWatched) => {
+      if (selectedCourse) {
+        const updatedHistory = await fileHistoryService.updateHistory(
+          selectedCourse,
+          path,
+          isWatched
+        );
+        if (updatedHistory) {
+          setVideoHistory(updatedHistory);
+          // Actualizar el conteo local de archivos vistos
+          setCourseInfo((prevInfo) => ({
+            ...prevInfo,
+            filesWatched: isWatched
+              ? prevInfo.filesWatched + 1
+              : prevInfo.filesWatched - 1,
+          }));
+        }
+        // Actualizar el progreso local
+        updateVideoProgressLocally(path, {
+          currentTime: isWatched ? 1 : 0,
+          duration: 1,
+        });
+      }
+    },
+    [selectedCourse, updateVideoProgressLocally]
+  );
 
   const handleVideoTimeUpdate = useCallback(
     (e) => {
@@ -328,29 +338,25 @@ const App = () => {
                 >
                   <div className="flex items-center mb-2">
                     <FileIcon size={16} className={`mr-2 ${iconColor}`} />
-                    {value.type === "video" && (
-                      <input
-                        type="checkbox"
-                        checked={isWatched}
-                        onChange={(e) =>
-                          handleWatchedChange(filePath, e.target.checked)
-                        }
-                        className="ml-2 mr-2"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      checked={isWatched}
+                      onChange={(e) =>
+                        handleWatchedChange(filePath, e.target.checked)
+                      }
+                      className="ml-2 mr-2"
+                      onClick={(e) => e.stopPropagation()}
+                    />
                     <span>{key}</span>
                   </div>
-                  {value.type === "video" && (
-                    <div className="ml-6 mr-4 bg-gray-200 rounded-full h-2 mb-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          isWatched ? "bg-green-500" : "bg-blue-600"
-                        }`}
-                        style={{ width: `${progressPercentage}%` }}
-                      ></div>
-                    </div>
-                  )}
+                  <div className="ml-6 mr-4 bg-gray-200 rounded-full h-2 mb-2">
+                    <div
+                      className={`h-2 rounded-full ${
+                        isWatched ? "bg-green-500" : "bg-blue-600"
+                      }`}
+                      style={{ width: `${progressPercentage}%` }}
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
