@@ -59,7 +59,7 @@ const App = () => {
       );
       setCourseInfo(response.data);
     } catch (error) {
-      console.error("Error fetching course infos:", error);
+      console.error("Error fetching course info:", error);
     }
   };
 
